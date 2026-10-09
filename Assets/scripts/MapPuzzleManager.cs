@@ -1,8 +1,9 @@
 ﻿using System.Collections;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.XR.Interaction.Toolkit;
-using UnityEngine.XR.Interaction.Toolkit.Interactors;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
+using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
 public class MapPuzzleManager : MonoBehaviour
 {
@@ -113,12 +114,59 @@ public class MapPuzzleManager : MonoBehaviour
 
 
 
+    [Header("Настройки Меню Победы")]
+    public GameObject winMenuPanel; // Сюда перетащите ваш выключенный WinMenuPanel
+    public Transform vrCameraTransform; // СЮДА МЫ ПЕРЕТАЩИМ ВАШУ ГЛАВНУЮ КАМЕРУ ИЗ ИЕРАРХИИ
+    public float distanceFromPlayer = 1.2f; // Расстояние от игрока до меню (в метрах)
+    public float menuHeightOffset = -0.1f;  // Смещение по высоте относительно глаз
+
     private void CheckWinCondition()
     {
         if (piecesPlaced >= 2)
         {
             Debug.Log("ИГРА ОКОНЧЕНА! Карта полностью собрана.");
+
+            if (winMenuPanel != null)
+            {
+                // 1. Проверяем, назначена ли VR-камера вручную. Если нет — ищем как раньше
+                Transform cam = vrCameraTransform != null ? vrCameraTransform : Camera.main.transform;
+
+                if (cam == null)
+                {
+                    Debug.LogError("КРИТИЧЕСКАЯ ОШИБКА: VR Камера не найдена на сцене! Меню спавнится в дефолтной точке.");
+                    return;
+                }
+
+                // 2. Считаем направление взгляда игрока по горизонтали
+                Vector3 forwardDirection = cam.forward;
+                forwardDirection.y = 0;
+                forwardDirection.Normalize();
+
+                // Если вектор направления почему-то сбросился в ноль, принудительно направляем вперед по Z
+                if (forwardDirection == Vector3.zero) forwardDirection = Vector3.forward;
+
+                // 3. Вычисляем финальную позицию меню прямо перед лицом игрока
+                Vector3 spawnPosition = cam.position + (forwardDirection * distanceFromPlayer);
+
+                // Настраиваем высоту: меню появится ровно на уровне груди/глаз
+                spawnPosition.y += menuHeightOffset;
+
+                // Перемещаем меню в вычисленную точку
+                winMenuPanel.transform.position = spawnPosition;
+
+                // 4. Поворачиваем меню ЛИЦОМ к игроку
+                winMenuPanel.transform.LookAt(new Vector3(cam.position.x, winMenuPanel.transform.position.y, cam.position.z));
+                winMenuPanel.transform.Rotate(0, 180, 0);
+
+                // 5. Включаем меню!
+                winMenuPanel.SetActive(true);
+
+                Debug.Log($"Меню победы успешно активировано в координатах: {spawnPosition} перед камерой {cam.name}");
+            }
         }
     }
+
 }
+
+
 
